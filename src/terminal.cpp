@@ -1,5 +1,5 @@
 #include "terminal.h"
-#include "folly_coro_traits.h"
+#include "coro_traits.h"
 #include "log.h"
 #include "transactions.h"
 #include "util.h"
@@ -12,7 +12,7 @@ namespace NTPCC {
 namespace {
 
 struct TTerminalTransaction {
-    using TTaskFunc = folly::SemiFuture<bool> (*)(TTransactionContext&, std::chrono::microseconds&, PgSession&);
+    using TTaskFunc = TFuture<bool> (*)(TTransactionContext&, std::chrono::microseconds&, PgSession&);
 
     std::string Name;
     double Weight;
@@ -89,7 +89,7 @@ void TTerminal::Start() {
     }
 }
 
-folly::SemiFuture<folly::Unit> TTerminal::Run() {
+TFuture<void> TTerminal::Run() {
     co_await TTaskReady(TaskQueue, Context.TerminalID);
 
     LOG_D("Terminal {} started", Context.TerminalID);
@@ -136,7 +136,7 @@ folly::SemiFuture<folly::Unit> TTerminal::Run() {
             PgSession dummySession;
             PgSession& session = guard ? **guard : dummySession;
 
-            folly::SemiFuture<bool> future = simulationMode
+            TFuture<bool> future = simulationMode
                 ? GetSimulationTask(Context, latencyPure, session)
                 : Transactions[txIndex].TaskFunc(Context, latencyPure, session);
             auto result = co_await TSuspendWithFuture(std::move(future), Context.TaskQueue, Context.TerminalID);

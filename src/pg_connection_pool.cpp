@@ -8,7 +8,7 @@ PgConnectionPool::PgConnectionPool(const std::string& connectionString,
                                    size_t ioThreads)
     : connectionString_(connectionString)
     , poolSize_(poolSize)
-    , executor_(std::make_unique<folly::CPUThreadPoolExecutor>(ioThreads))
+    , executor_(std::make_unique<TThreadPool>(ioThreads))
 {
     LOG_I("Creating connection pool: {} connections, {} IO threads", poolSize, ioThreads);
 
@@ -27,7 +27,7 @@ PgConnectionPool::~PgConnectionPool() {
     }
     cv_.notify_all();
 
-    executor_->join();
+    executor_->Join();
 
     std::lock_guard lock(mutex_);
     while (!connections_.empty()) {

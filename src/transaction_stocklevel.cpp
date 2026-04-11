@@ -1,5 +1,5 @@
 #include "transactions.h"
-#include "folly_coro_traits.h"
+#include "coro_traits.h"
 
 #include "constants.h"
 #include "log.h"
@@ -11,7 +11,7 @@ namespace NTPCC {
 
 //-----------------------------------------------------------------------------
 
-folly::SemiFuture<bool> GetStockLevelTask(
+TFuture<bool> GetStockLevelTask(
     TTransactionContext& context,
     std::chrono::microseconds& latency,
     PgSession& session)

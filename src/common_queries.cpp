@@ -29,7 +29,7 @@ TCustomer ParseCustomerFromResult(QueryResult& result) {
 
 //-----------------------------------------------------------------------------
 
-folly::SemiFuture<QueryResult> GetCustomerById(
+TFuture<QueryResult> GetCustomerById(
     PgSession& session,
     int warehouseID,
     int districtID,
@@ -47,7 +47,7 @@ folly::SemiFuture<QueryResult> GetCustomerById(
 
 //-----------------------------------------------------------------------------
 
-folly::SemiFuture<QueryResult> GetCustomersByLastName(
+TFuture<QueryResult> GetCustomersByLastName(
     PgSession& session,
     int warehouseID,
     int districtID,

@@ -1,22 +1,19 @@
 #include "task_queue.h"
-#include "folly_coro_traits.h"
+#include "coro_traits.h"
 
 #include <gtest/gtest.h>
-
-#include <folly/futures/Future.h>
-#include <folly/Unit.h>
 
 #include <thread>
 #include <vector>
 
 using namespace NTPCC;
 
-folly::SemiFuture<folly::Unit> MakeTransactionTask(int& counter) {
+TFuture<void> MakeTransactionTask(int& counter) {
     counter++;
     co_return;
 }
 
-folly::SemiFuture<folly::Unit> MakeTerminalTask(
+TFuture<void> MakeTerminalTask(
     ITaskQueue& queue, int& transactionCounter, int& sleepCounter, size_t terminalId)
 {
     co_await TTaskReady(queue, terminalId);
@@ -47,7 +44,7 @@ TEST(TTaskQueueTest, ShouldExecuteTerminalTaskWithSleepsAndTransactions) {
     queue->Run();
 
     auto taskFuture = MakeTerminalTask(*queue, transactionCounter, sleepCounter, terminalId);
-    std::move(taskFuture).get();
+    taskFuture.Get();
 
     ASSERT_EQ(transactionCounter, 2);
     ASSERT_EQ(sleepCounter, 3);
@@ -55,7 +52,7 @@ TEST(TTaskQueueTest, ShouldExecuteTerminalTaskWithSleepsAndTransactions) {
     queue->Join();
 }
 
-folly::SemiFuture<folly::Unit> MakeTerminalTaskWithMultipleTransactions(
+TFuture<void> MakeTerminalTaskWithMultipleTransactions(
     ITaskQueue& queue, int& transactionCounter, int& sleepCounter,
     size_t terminalId, int numTransactions)
 {
@@ -82,7 +79,7 @@ TEST(TTaskQueueTest, ShouldExecuteMultipleTransactionsWithSleeps) {
 
     auto taskFuture = MakeTerminalTaskWithMultipleTransactions(
         *queue, transactionCounter, sleepCounter, terminalId, numTransactions);
-    std::move(taskFuture).get();
+    taskFuture.Get();
 
     ASSERT_EQ(transactionCounter, numTransactions);
     ASSERT_EQ(sleepCounter, numTransactions);
@@ -90,12 +87,12 @@ TEST(TTaskQueueTest, ShouldExecuteMultipleTransactionsWithSleeps) {
     queue->Join();
 }
 
-folly::SemiFuture<folly::Unit> MakeFailingTransactionTask() {
+TFuture<void> MakeFailingTransactionTask() {
     throw std::runtime_error("Transaction failed");
     co_return;
 }
 
-folly::SemiFuture<folly::Unit> MakeTerminalTaskWithFailingTransaction(
+TFuture<void> MakeTerminalTaskWithFailingTransaction(
     ITaskQueue& queue, size_t terminalId)
 {
     co_await TTaskReady(queue, terminalId);
@@ -113,7 +110,7 @@ TEST(TTaskQueueTest, ShouldPropagateTransactionFailure) {
 
     auto taskFuture = MakeTerminalTaskWithFailingTransaction(*queue, terminalId);
     try {
-        std::move(taskFuture).get();
+        taskFuture.Get();
         FAIL() << "Expected exception not thrown";
     } catch (const std::runtime_error& e) {
         ASSERT_NE(std::string(e.what()).find("Transaction failed"), std::string::npos)
@@ -130,7 +127,7 @@ TEST(TTaskQueueTest, ShouldHandleMultipleTerminals) {
 
     std::vector<int> transactionCounters(numTerminals, 0);
     std::vector<int> sleepCounters(numTerminals, 0);
-    std::vector<folly::SemiFuture<folly::Unit>> taskFutures;
+    std::vector<TFuture<void>> taskFutures;
 
     queue->Run();
 
@@ -140,7 +137,7 @@ TEST(TTaskQueueTest, ShouldHandleMultipleTerminals) {
     }
 
     for (size_t i = 0; i < taskFutures.size(); ++i) {
-        std::move(taskFutures[i]).get();
+        taskFutures[i].Get();
     }
 
     for (int i = 0; i < numTerminals; ++i) {
@@ -158,7 +155,7 @@ TEST(TTaskQueueTest, ShouldHandleQueueLimits) {
 
     int transactionCounter = 0;
     int sleepCounter = 0;
-    std::vector<folly::SemiFuture<folly::Unit>> taskFutures;
+    std::vector<TFuture<void>> taskFutures;
 
     for (size_t i = 0; i < maxTerminals + 1; ++i) {
         taskFutures.push_back(MakeTerminalTask(*queue, transactionCounter, sleepCounter, i));
@@ -169,7 +166,7 @@ TEST(TTaskQueueTest, ShouldHandleQueueLimits) {
     size_t exceptionCount = 0;
     for (size_t i = 0; i < taskFutures.size(); ++i) {
         try {
-            std::move(taskFutures[i]).get();
+            taskFutures[i].Get();
         } catch (...) {
             ++exceptionCount;
         }
@@ -180,7 +177,7 @@ TEST(TTaskQueueTest, ShouldHandleQueueLimits) {
     queue->Join();
 }
 
-folly::SemiFuture<folly::Unit> MakeTransactionTaskWithInflight(
+TFuture<void> MakeTransactionTaskWithInflight(
     ITaskQueue& queue, int& counter, size_t terminalId)
 {
     co_await TTaskHasInflight(queue, terminalId);
@@ -190,7 +187,7 @@ folly::SemiFuture<folly::Unit> MakeTransactionTaskWithInflight(
     co_return;
 }
 
-folly::SemiFuture<folly::Unit> MakeTerminalTaskWithInflightControl(
+TFuture<void> MakeTerminalTaskWithInflightControl(
     ITaskQueue& queue, int& transactionCounter, size_t terminalId, int numTransactions)
 {
     co_await TTaskReady(queue, terminalId);
@@ -209,7 +206,7 @@ TEST(TTaskQueueTest, ShouldSupportUnlimitedInflight) {
     auto queue = CreateTaskQueue(4, maxRunningTerminals, numTerminals, numTerminals);
 
     std::vector<int> transactionCounters(numTerminals, 0);
-    std::vector<folly::SemiFuture<folly::Unit>> taskFutures;
+    std::vector<TFuture<void>> taskFutures;
 
     queue->Run();
 
@@ -219,7 +216,7 @@ TEST(TTaskQueueTest, ShouldSupportUnlimitedInflight) {
     }
 
     for (size_t i = 0; i < taskFutures.size(); ++i) {
-        std::move(taskFutures[i]).get();
+        taskFutures[i].Get();
     }
 
     for (int i = 0; i < numTerminals; ++i) {
@@ -236,7 +233,7 @@ TEST(TTaskQueueTest, ShouldLimitInflightTerminals) {
     auto queue = CreateTaskQueue(4, maxRunningTerminals, numTerminals, numTerminals);
 
     std::vector<int> transactionCounters(numTerminals, 0);
-    std::vector<folly::SemiFuture<folly::Unit>> taskFutures;
+    std::vector<TFuture<void>> taskFutures;
 
     queue->Run();
 
@@ -246,7 +243,7 @@ TEST(TTaskQueueTest, ShouldLimitInflightTerminals) {
     }
 
     for (size_t i = 0; i < taskFutures.size(); ++i) {
-        std::move(taskFutures[i]).get();
+        taskFutures[i].Get();
     }
 
     for (int i = 0; i < numTerminals; ++i) {

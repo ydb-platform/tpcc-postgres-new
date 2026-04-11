@@ -1,12 +1,9 @@
 #include "pg_session.h"
 #include "log.h"
 
-#include <folly/ExceptionWrapper.h>
-#include <folly/executors/InlineExecutor.h>
-
 namespace NTPCC {
 
-PgSession::PgSession(std::unique_ptr<pqxx::connection> conn, folly::Executor* executor)
+PgSession::PgSession(std::unique_ptr<pqxx::connection> conn, IExecutor* executor)
     : conn_(std::move(conn))
     , executor_(executor)
 {}
@@ -39,115 +36,121 @@ PgSession::~PgSession() {
     }
 }
 
-folly::SemiFuture<QueryResult> PgSession::ExecuteQuery(
+TFuture<QueryResult> PgSession::ExecuteQuery(
     std::string_view sql, const pqxx::params& params)
 {
-    auto [promise, future] = folly::makePromiseContract<QueryResult>();
+    TPromise<QueryResult> promise;
+    auto future = promise.GetFuture();
     std::string sqlCopy(sql);
 
-    folly::via(executor_, [this, sqlCopy = std::move(sqlCopy), params,
-                           p = std::move(promise)]() mutable {
+    executor_->Submit([this, sqlCopy = std::move(sqlCopy), params,
+                       p = std::move(promise)]() mutable {
         try {
             if (!txn_) {
                 txn_ = std::make_unique<pqxx::work>(*conn_);
             }
             auto result = txn_->exec(sqlCopy, params);
-            p.setValue(QueryResult(std::move(result)));
+            p.SetValue(QueryResult(std::move(result)));
         } catch (...) {
-            p.setException(folly::exception_wrapper(std::current_exception()));
+            p.SetException(std::current_exception());
         }
     });
 
-    return std::move(future);
+    return future;
 }
 
-folly::SemiFuture<uint64_t> PgSession::ExecuteModify(
+TFuture<uint64_t> PgSession::ExecuteModify(
     std::string_view sql, const pqxx::params& params)
 {
-    auto [promise, future] = folly::makePromiseContract<uint64_t>();
+    TPromise<uint64_t> promise;
+    auto future = promise.GetFuture();
     std::string sqlCopy(sql);
 
-    folly::via(executor_, [this, sqlCopy = std::move(sqlCopy), params,
-                           p = std::move(promise)]() mutable {
+    executor_->Submit([this, sqlCopy = std::move(sqlCopy), params,
+                       p = std::move(promise)]() mutable {
         try {
             if (!txn_) {
                 txn_ = std::make_unique<pqxx::work>(*conn_);
             }
             auto result = txn_->exec(sqlCopy, params);
-            p.setValue(result.affected_rows());
+            p.SetValue(result.affected_rows());
         } catch (...) {
-            p.setException(folly::exception_wrapper(std::current_exception()));
+            p.SetException(std::current_exception());
         }
     });
 
-    return std::move(future);
+    return future;
 }
 
-folly::SemiFuture<folly::Unit> PgSession::Commit() {
-    auto [promise, future] = folly::makePromiseContract<folly::Unit>();
+TFuture<void> PgSession::Commit() {
+    TPromise<void> promise;
+    auto future = promise.GetFuture();
 
-    folly::via(executor_, [this, p = std::move(promise)]() mutable {
+    executor_->Submit([this, p = std::move(promise)]() mutable {
         try {
             if (txn_) {
                 txn_->commit();
                 txn_.reset();
             }
-            p.setValue(folly::unit);
+            p.SetValue();
         } catch (...) {
             txn_.reset();
-            p.setException(folly::exception_wrapper(std::current_exception()));
+            p.SetException(std::current_exception());
         }
     });
 
-    return std::move(future);
+    return future;
 }
 
-folly::SemiFuture<folly::Unit> PgSession::Rollback() {
-    auto [promise, future] = folly::makePromiseContract<folly::Unit>();
+TFuture<void> PgSession::Rollback() {
+    TPromise<void> promise;
+    auto future = promise.GetFuture();
 
-    folly::via(executor_, [this, p = std::move(promise)]() mutable {
+    executor_->Submit([this, p = std::move(promise)]() mutable {
         try {
             if (txn_) {
                 txn_->abort();
                 txn_.reset();
             }
-            p.setValue(folly::unit);
+            p.SetValue();
         } catch (...) {
             txn_.reset();
-            p.setException(folly::exception_wrapper(std::current_exception()));
+            p.SetException(std::current_exception());
         }
     });
 
-    return std::move(future);
+    return future;
 }
 
-folly::SemiFuture<QueryResult> PgSession::ExecuteNonTx(std::string_view sql) {
-    auto [promise, future] = folly::makePromiseContract<QueryResult>();
+TFuture<QueryResult> PgSession::ExecuteNonTx(std::string_view sql) {
+    TPromise<QueryResult> promise;
+    auto future = promise.GetFuture();
     std::string sqlCopy(sql);
 
-    folly::via(executor_, [this, sqlCopy = std::move(sqlCopy),
-                           p = std::move(promise)]() mutable {
+    executor_->Submit([this, sqlCopy = std::move(sqlCopy),
+                       p = std::move(promise)]() mutable {
         try {
             pqxx::nontransaction ntx(*conn_);
             auto result = ntx.exec(sqlCopy);
-            p.setValue(QueryResult(std::move(result)));
+            p.SetValue(QueryResult(std::move(result)));
         } catch (...) {
-            p.setException(folly::exception_wrapper(std::current_exception()));
+            p.SetException(std::current_exception());
         }
     });
 
-    return std::move(future);
+    return future;
 }
 
-folly::SemiFuture<folly::Unit> PgSession::ExecuteCopy(
+TFuture<void> PgSession::ExecuteCopy(
     const std::string& tableName,
     const std::vector<std::string>& columns,
     std::function<void(pqxx::stream_to&)> writer)
 {
-    auto [promise, future] = folly::makePromiseContract<folly::Unit>();
+    TPromise<void> promise;
+    auto future = promise.GetFuture();
 
-    folly::via(executor_, [this, tableName, columns, writer = std::move(writer),
-                           p = std::move(promise)]() mutable {
+    executor_->Submit([this, tableName, columns, writer = std::move(writer),
+                       p = std::move(promise)]() mutable {
         try {
             if (!txn_) {
                 txn_ = std::make_unique<pqxx::work>(*conn_);
@@ -156,13 +159,13 @@ folly::SemiFuture<folly::Unit> PgSession::ExecuteCopy(
                 *txn_, conn_->quote_table(tableName), conn_->quote_columns(columns));
             writer(stream);
             stream.complete();
-            p.setValue(folly::unit);
+            p.SetValue();
         } catch (...) {
-            p.setException(folly::exception_wrapper(std::current_exception()));
+            p.SetException(std::current_exception());
         }
     });
 
-    return std::move(future);
+    return future;
 }
 
 std::unique_ptr<pqxx::connection> PgSession::ReleaseConnection() {

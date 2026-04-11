@@ -1,12 +1,8 @@
 #pragma once
 
 #include "histogram.h"
-
-#include <folly/futures/Future.h>
-#include <folly/Try.h>
-#include <folly/Unit.h>
-#include <folly/executors/InlineExecutor.h>
-#include <folly/MicroSpinLock.h>
+#include "future.h"
+#include "spinlock.h"
 
 #include <exception>
 #include <coroutine>
@@ -69,7 +65,7 @@ public:
         std::atomic<double> ExecutingTime{0};
         std::atomic<double> TotalTime{0};
 
-        mutable folly::MicroSpinLock HistLock{0};
+        mutable TSpinLock HistLock;
         THistogram InternalInflightWaitTimeMs{BUCKET_COUNT, MAX_HIST_VALUE};
         THistogram InternalQueueTimeMs{BUCKET_COUNT, MAX_HIST_VALUE};
         THistogram ExternalQueueTimeMs{BUCKET_COUNT, MAX_HIST_VALUE};
@@ -137,11 +133,11 @@ struct TSuspend {
 
 //-----------------------------------------------------------------------------
 
-// Bridge between folly::SemiFuture and the coroutine task queue.
+// Bridge between TFuture and the coroutine task queue.
 // When the future completes, the coroutine is resumed on the task queue thread.
 template <typename T>
 struct TSuspendWithFuture {
-    TSuspendWithFuture(folly::SemiFuture<T>&& future, ITaskQueue& taskQueue, size_t threadHint)
+    TSuspendWithFuture(TFuture<T>&& future, ITaskQueue& taskQueue, size_t threadHint)
         : Future(std::move(future))
         , TaskQueue(taskQueue)
         , ThreadHint(threadHint)
@@ -151,52 +147,17 @@ struct TSuspendWithFuture {
     TSuspendWithFuture(const TSuspendWithFuture&) = delete;
     TSuspendWithFuture& operator=(const TSuspendWithFuture&) = delete;
 
-    bool await_ready() { return Future.isReady(); }
+    bool await_ready() { return Future.IsReady(); }
 
     void await_suspend(std::coroutine_handle<> handle) {
-        std::move(Future)
-            .via(&folly::InlineExecutor::instance())
-            .thenTry([this, handle](folly::Try<T>&& t) {
-                Result = std::move(t);
-                TaskQueue.TaskReadyThreadSafe(handle, ThreadHint);
-            });
+        Future.Subscribe([this, handle]() {
+            TaskQueue.TaskReadyThreadSafe(handle, ThreadHint);
+        });
     }
 
-    T await_resume() { return std::move(Result).value(); }
+    T await_resume() { return Future.Get(); }
 
-    folly::SemiFuture<T> Future;
-    folly::Try<T> Result;
-    ITaskQueue& TaskQueue;
-    size_t ThreadHint;
-};
-
-template <>
-struct TSuspendWithFuture<folly::Unit> {
-    TSuspendWithFuture(folly::SemiFuture<folly::Unit>&& future, ITaskQueue& taskQueue, size_t threadHint)
-        : Future(std::move(future))
-        , TaskQueue(taskQueue)
-        , ThreadHint(threadHint)
-    {}
-
-    TSuspendWithFuture() = delete;
-    TSuspendWithFuture(const TSuspendWithFuture&) = delete;
-    TSuspendWithFuture& operator=(const TSuspendWithFuture&) = delete;
-
-    bool await_ready() { return Future.isReady(); }
-
-    void await_suspend(std::coroutine_handle<> handle) {
-        std::move(Future)
-            .via(&folly::InlineExecutor::instance())
-            .thenTry([this, handle](folly::Try<folly::Unit>&& t) {
-                Result = std::move(t);
-                TaskQueue.TaskReadyThreadSafe(handle, ThreadHint);
-            });
-    }
-
-    void await_resume() { Result.throwUnlessValue(); }
-
-    folly::SemiFuture<folly::Unit> Future;
-    folly::Try<folly::Unit> Result;
+    TFuture<T> Future;
     ITaskQueue& TaskQueue;
     size_t ThreadHint;
 };

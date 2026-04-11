@@ -1,8 +1,7 @@
 #pragma once
 
 #include "pg_session.h"
-
-#include <folly/executors/CPUThreadPoolExecutor.h>
+#include "thread_pool.h"
 
 #include <pqxx/pqxx>
 
@@ -57,13 +56,13 @@ public:
 
     SessionGuard AcquireGuard();
 
-    folly::Executor* GetExecutor() { return executor_.get(); }
+    IExecutor* GetExecutor() { return executor_.get(); }
     size_t GetPoolSize() const { return poolSize_; }
 
 private:
     std::string connectionString_;
     size_t poolSize_;
-    std::unique_ptr<folly::CPUThreadPoolExecutor> executor_;
+    std::unique_ptr<TThreadPool> executor_;
 
     std::mutex mutex_;
     std::condition_variable cv_;

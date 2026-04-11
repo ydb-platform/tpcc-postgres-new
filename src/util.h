@@ -2,8 +2,7 @@
 
 #include "constants.h"
 
-#include <folly/Random.h>
-
+#include <random>
 #include <string>
 #include <stop_token>
 #include <atomic>
@@ -12,10 +11,10 @@ namespace NTPCC {
 
 //-----------------------------------------------------------------------------
 
-// [from; to] inclusive range, matches Yandex TReallyFastRng32 / ::RandomNumber convention
+// [from; to] inclusive range
 inline size_t RandomNumber(size_t from, size_t to) {
-    folly::ThreadLocalPRNG rng;
-    return folly::Random::rand32(from, to + 1, rng);
+    thread_local std::mt19937 rng(std::random_device{}());
+    return std::uniform_int_distribution<size_t>(from, to)(rng);
 }
 
 // Non-uniform random number generation as per TPC-C spec

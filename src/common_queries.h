@@ -3,8 +3,7 @@
 #include "constants.h"
 #include "pg_session.h"
 #include "query_result.h"
-
-#include <folly/futures/Future.h>
+#include "future.h"
 
 #include <optional>
 #include <string>
@@ -34,13 +33,13 @@ struct TCustomer {
 
 TCustomer ParseCustomerFromResult(QueryResult& result);
 
-folly::SemiFuture<QueryResult> GetCustomerById(
+TFuture<QueryResult> GetCustomerById(
     PgSession& session,
     int warehouseID,
     int districtID,
     int customerID);
 
-folly::SemiFuture<QueryResult> GetCustomersByLastName(
+TFuture<QueryResult> GetCustomersByLastName(
     PgSession& session,
     int warehouseID,
     int districtID,

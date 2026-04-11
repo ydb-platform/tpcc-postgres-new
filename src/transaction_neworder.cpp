@@ -1,5 +1,5 @@
 #include "transactions.h"
-#include "folly_coro_traits.h"
+#include "coro_traits.h"
 
 #include "constants.h"
 #include "log.h"
@@ -57,7 +57,7 @@ std::string GetDistInfo(int districtID, const Stock& stock) {
 
 //-----------------------------------------------------------------------------
 
-folly::SemiFuture<bool> GetNewOrderTask(
+TFuture<bool> GetNewOrderTask(
     TTransactionContext& context,
     std::chrono::microseconds& latency,
     PgSession& session)

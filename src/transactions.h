@@ -2,8 +2,7 @@
 
 #include "pg_session.h"
 #include "task_queue.h"
-
-#include <folly/futures/Future.h>
+#include "future.h"
 
 #include <atomic>
 #include <chrono>
@@ -44,37 +43,37 @@ struct TUserAbortedException : public std::runtime_error {
 
 //-----------------------------------------------------------------------------
 
-// Each transaction is a coroutine returning folly::SemiFuture<bool>.
+// Each transaction is a coroutine returning TFuture<bool>.
 // Returns true on success, false on retryable failure.
 // Throws on fatal errors.
 // Latency is measured by the coroutine and stored in the latency output param.
 
-folly::SemiFuture<bool> GetNewOrderTask(
+TFuture<bool> GetNewOrderTask(
     TTransactionContext& context,
     std::chrono::microseconds& latency,
     PgSession& session);
 
-folly::SemiFuture<bool> GetDeliveryTask(
+TFuture<bool> GetDeliveryTask(
     TTransactionContext& context,
     std::chrono::microseconds& latency,
     PgSession& session);
 
-folly::SemiFuture<bool> GetOrderStatusTask(
+TFuture<bool> GetOrderStatusTask(
     TTransactionContext& context,
     std::chrono::microseconds& latency,
     PgSession& session);
 
-folly::SemiFuture<bool> GetPaymentTask(
+TFuture<bool> GetPaymentTask(
     TTransactionContext& context,
     std::chrono::microseconds& latency,
     PgSession& session);
 
-folly::SemiFuture<bool> GetStockLevelTask(
+TFuture<bool> GetStockLevelTask(
     TTransactionContext& context,
     std::chrono::microseconds& latency,
     PgSession& session);
 
-folly::SemiFuture<bool> GetSimulationTask(
+TFuture<bool> GetSimulationTask(
     TTransactionContext& context,
     std::chrono::microseconds& latency,
     PgSession& session);

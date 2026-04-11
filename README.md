@@ -1,36 +1,30 @@
 # TPC-C Benchmark for PostgreSQL
 
 A C++20 implementation of the [TPC-C](http://www.tpc.org/tpcc/) benchmark for PostgreSQL.
-Ported from a YDB CLI implementation. Uses folly futures/promises with C++20 coroutines,
+Ported from a YDB CLI implementation. Uses custom futures/promises with C++20 coroutines,
 libpqxx for PostgreSQL access, and an optional ftxui-based terminal UI.
 
 ## Dependencies
 
 Requires Clang 16+ (tested with Clang 20) and a running PostgreSQL instance.
 
-### folly
+### fmt
 
-folly requires a recent liburing (we had to remove system provided and to install the trunk version).
-If your system version is too old, build from source:
+Build [fmt](https://github.com/fmtlib/fmt) from source:
 ```
-git clone https://github.com/axboe/liburing.git
-cd liburing
-./configure && make && sudo make install
-```
-
-Build [folly](https://github.com/facebook/folly) (v2026.03.30.00):
-```
-git clone https://github.com/facebook/folly.git ~/packages/folly
-cd ~/packages/folly
-git checkout -b v2026.03.30.00 v2026.03.30.00
-sudo ./build/fbcode_builder/getdeps.py install-system-deps --recursive
-python3 ./build/fbcode_builder/getdeps.py --allow-system-packages build \
-    --num-jobs $(nproc) --build-type Release
+cd ~/packages
+git clone --branch 11.1.4 --depth 1 https://github.com/fmtlib/fmt.git
+cd fmt
+cmake -B build -DCMAKE_CXX_COMPILER=clang++-20 \
+    -DCMAKE_INSTALL_PREFIX=$HOME/packages/fmt/install \
+    -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+cmake --install build
 ```
 
 ### spdlog
 
-System spdlog may conflict with folly's bundled fmt. Build spdlog 1.15.3 against folly's fmt:
+Build [spdlog](https://github.com/gabime/spdlog) v1.15.3 from source (with external fmt):
 ```
 cd ~/packages
 git clone --branch v1.15.3 --depth 1 https://github.com/gabime/spdlog.git
@@ -38,10 +32,17 @@ cd spdlog
 cmake -B build -DCMAKE_CXX_COMPILER=clang++-20 \
     -DCMAKE_INSTALL_PREFIX=$HOME/packages/spdlog/install \
     -DSPDLOG_FMT_EXTERNAL=ON \
-    -DCMAKE_PREFIX_PATH="$(python3 ~/packages/folly/build/fbcode_builder/getdeps.py show-inst-dir --allow-system-packages)" \
+    -DCMAKE_PREFIX_PATH="$HOME/packages/fmt/install" \
     -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
 cmake --install build
+```
+
+### gflags
+
+Install via apt or build from source:
+```
+sudo apt install libgflags-dev
 ```
 
 ### libpqxx
@@ -77,11 +78,8 @@ cmake --install build
 ## Building
 
 ```
-FOLLY_INST=$(python3 ~/packages/folly/build/fbcode_builder/getdeps.py show-inst-dir --allow-system-packages)
-
 cmake -B build -DCMAKE_CXX_COMPILER=clang++-20 \
-    -DDEPS_PREFIX="$FOLLY_INST" \
-    -DCMAKE_PREFIX_PATH="$HOME/packages/spdlog/install;$HOME/packages/libpqxx/install;$HOME/packages/ftxui/install" \
+    -DCMAKE_PREFIX_PATH="$HOME/packages/fmt/install;$HOME/packages/spdlog/install;$HOME/packages/libpqxx/install;$HOME/packages/ftxui/install" \
     -DCMAKE_BUILD_TYPE=Release
 
 cmake --build build -j$(nproc)
@@ -142,7 +140,7 @@ Run `./build/tpcc --help` for the full list. Key options:
 
 ### Unit tests
 
-Built automatically when Google Test is found (bundled with folly's deps):
+Built automatically when Google Test is found:
 ```
 cmake --build build --target tpcc_tests -j$(nproc)
 ./build/tpcc_tests

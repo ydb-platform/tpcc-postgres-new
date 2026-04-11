@@ -11,26 +11,11 @@ if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message(WARNING "This project is designed for Clang 16+. Current compiler: ${CMAKE_CXX_COMPILER_ID}")
 endif()
 
-# Optional: point DEPS_PREFIX at fbcode_builder's installed/ directory
-# to auto-discover folly, fmt, glog, googletest, etc.
-# Usage: cmake .. -DDEPS_PREFIX=/path/to/installed
-if(DEPS_PREFIX)
-    file(GLOB _dep_dirs "${DEPS_PREFIX}/*/lib/cmake")
-    foreach(_dir ${_dep_dirs})
-        get_filename_component(_prefix "${_dir}" DIRECTORY)
-        get_filename_component(_prefix "${_prefix}" DIRECTORY)
-        list(APPEND CMAKE_PREFIX_PATH "${_prefix}")
-    endforeach()
-    message(STATUS "DEPS_PREFIX=${DEPS_PREFIX}: added ${CMAKE_PREFIX_PATH}")
-endif()
-
 # Dependencies
 
 # libpqxx (7.x+, built from source via CMake)
 find_package(libpqxx REQUIRED)
 
-# folly
-find_package(folly REQUIRED)
 find_package(gflags REQUIRED)
 
 # spdlog
@@ -57,6 +42,10 @@ set(TPCC_SOURCES
     src/log.h
     src/histogram.h
     src/histogram.cpp
+    src/future.h
+    src/spinlock.h
+    src/thread_pool.h
+    src/coro_traits.h
     src/task_queue.h
     src/task_queue.cpp
     src/timer_queue.h
@@ -88,7 +77,6 @@ set(TPCC_SOURCES
     src/runner.h
     src/runner.cpp
     src/runner_display_data.h
-    src/folly_coro_traits.h
     src/path_checker.h
     src/path_checker.cpp
     src/log_backend.h
@@ -118,7 +106,6 @@ target_include_directories(tpcc PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(tpcc PRIVATE
     libpqxx::pqxx
-    Folly::folly
     gflags
     spdlog::spdlog
     fmt::fmt
@@ -162,7 +149,6 @@ target_include_directories(coroutines_vs_threads PRIVATE
 target_compile_definitions(coroutines_vs_threads PRIVATE TPCC_NO_SPDLOG)
 
 target_link_libraries(coroutines_vs_threads PRIVATE
-    Folly::folly
     gflags
     fmt::fmt
 )
@@ -204,7 +190,6 @@ if(GTest_FOUND)
     target_link_libraries(tpcc_tests PRIVATE
         GTest::gtest
         GTest::gtest_main
-        Folly::folly
         fmt::fmt
     )
 

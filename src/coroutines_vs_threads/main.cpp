@@ -1,9 +1,7 @@
 #include "workload.h"
 
 #include "task_queue.h"
-#include "folly_coro_traits.h"
-
-#include <folly/Unit.h>
+#include "coro_traits.h"
 
 #include <gflags/gflags.h>
 #include <fmt/format.h>
@@ -149,7 +147,7 @@ TRunStats RunThreads(int concurrency, std::chrono::microseconds sliceDuration) {
 
 // ---- Coroutine mode ---------------------------------------------------------
 
-folly::SemiFuture<folly::Unit> CoroWorker(
+TFuture<void> CoroWorker(
     NTPCC::ITaskQueue& taskQueue,
     const TWorkerData& workerData,
     size_t threadHint,

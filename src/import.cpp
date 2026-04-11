@@ -4,8 +4,6 @@
 #include "log.h"
 #include "util.h"
 
-#include <folly/Random.h>
-
 #include <pqxx/pqxx>
 
 #include <algorithm>
@@ -310,7 +308,7 @@ void LoadOrders(pqxx::connection& conn, int wh, int district) {
     for (int i = 1; i <= CUSTOMERS_PER_DISTRICT; ++i) {
         customerIds.push_back(i);
     }
-    folly::ThreadLocalPRNG rng;
+    thread_local std::mt19937 rng(std::random_device{}());
     std::shuffle(customerIds.begin(), customerIds.end(), rng);
 
     auto ts = CurrentTimestamp();

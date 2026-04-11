@@ -4,8 +4,6 @@
 #include "spsc_circular_queue.h"
 #include "log.h"
 
-#include <folly/MicroSpinLock.h>
-
 #include <chrono>
 #include <thread>
 
@@ -41,7 +39,7 @@ struct alignas(64) TPerThreadContext {
     TSpscCircularQueue<THandleWithTs> ReadyTasksInternal;
     TSpscCircularQueue<THandleWithTs> InflightWaitingTasksInternal;
 
-    folly::MicroSpinLock ReadyTasksLock{0};
+    TSpinLock ReadyTasksLock;
     TSpscCircularQueue<THandleWithTs> ReadyTasksExternal;
 
     ITaskQueue::TThreadStats Stats;

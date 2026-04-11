@@ -1,5 +1,5 @@
 #include "transactions.h"
-#include "folly_coro_traits.h"
+#include "coro_traits.h"
 
 #include "constants.h"
 #include "log.h"
@@ -7,7 +7,7 @@
 
 namespace NTPCC {
 
-folly::SemiFuture<bool> GetSimulationTask(
+TFuture<bool> GetSimulationTask(
     TTransactionContext& context,
     std::chrono::microseconds& latency,
     PgSession& session)

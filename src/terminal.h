@@ -6,8 +6,8 @@
 #include "transactions.h"
 #include "pg_connection_pool.h"
 
-#include <folly/futures/Future.h>
-#include <folly/MicroSpinLock.h>
+#include "future.h"
+#include "spinlock.h"
 
 #include <atomic>
 #include <stop_token>
@@ -57,7 +57,7 @@ public:
         std::atomic<size_t> Failed = 0;
         std::atomic<size_t> UserAborted = 0;
 
-        mutable folly::MicroSpinLock HistLock{0};
+        mutable TSpinLock HistLock;
         THistogram LatencyHistogramMs;
         THistogram LatencyHistogramFullMs;
         THistogram LatencyHistogramPure;
@@ -156,7 +156,7 @@ public:
     bool IsDone() const { return Done.load(std::memory_order_relaxed); }
 
 private:
-    folly::SemiFuture<folly::Unit> Run();
+    TFuture<void> Run();
 
 private:
     ITaskQueue& TaskQueue;
