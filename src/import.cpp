@@ -1,6 +1,7 @@
 #include "import.h"
 
 #include "constants.h"
+#include "init.h"
 #include "log.h"
 #include "util.h"
 
@@ -477,6 +478,8 @@ void ImportSync(const TImportConfig& config) {
             ntx.exec(fmt::format("ANALYZE {}", table));
         }
     }
+
+    CreateIndexes(config.ConnectionString);
 
     auto elapsed = Clock::now() - startTime;
     auto seconds = std::chrono::duration<double>(elapsed).count();

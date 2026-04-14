@@ -161,9 +161,11 @@ CREATE TABLE order_line (
     PRIMARY KEY (ol_w_id, ol_d_id, ol_o_id, ol_number)
 );
 
-CREATE INDEX idx_customer_name ON customer (c_w_id, c_d_id, c_last, c_first);
-CREATE INDEX idx_order ON oorder (o_w_id, o_d_id, o_c_id, o_id);
+)";
 
+const char* INDEX_DDL = R"(
+CREATE INDEX IF NOT EXISTS idx_customer_name ON customer (c_w_id, c_d_id, c_last, c_first);
+CREATE INDEX IF NOT EXISTS idx_order ON oorder (o_w_id, o_d_id, o_c_id, o_id);
 )";
 
 } // anonymous
@@ -179,6 +181,20 @@ void InitSync(const std::string& connectionString) {
     } catch (const std::exception& e) {
         LOG_E("Failed to create TPC-C tables: {}", e.what());
         LOG_E("After fixing the reason, you might need to run `tpcc clean`.");
+        throw;
+    }
+}
+
+void CreateIndexes(const std::string& connectionString) {
+    LOG_I("Creating secondary indexes...");
+
+    try {
+        pqxx::connection conn(connectionString);
+        pqxx::nontransaction ntx(conn);
+        ntx.exec(INDEX_DDL);
+        LOG_I("Secondary indexes created");
+    } catch (const std::exception& e) {
+        LOG_E("Failed to create indexes: {}", e.what());
         throw;
     }
 }
