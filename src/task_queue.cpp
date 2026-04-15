@@ -147,6 +147,26 @@ void TTaskQueue::Join() {
             thread.join();
         }
     }
+
+    for (auto& contextPtr : PerThreadContext) {
+        auto& ctx = *contextPtr;
+
+        while (!ctx.SleepingTasks.Empty()) {
+            auto item = ctx.SleepingTasks.PopFront();
+            if (item.Value) item.Value.destroy();
+        }
+
+        THandleWithTs task;
+        while (ctx.ReadyTasksInternal.TryPop(task)) {
+            if (task.Handle) task.Handle.destroy();
+        }
+        while (ctx.ReadyTasksExternal.TryPop(task)) {
+            if (task.Handle) task.Handle.destroy();
+        }
+        while (ctx.InflightWaitingTasksInternal.TryPop(task)) {
+            if (task.Handle) task.Handle.destroy();
+        }
+    }
 }
 
 void TTaskQueue::WakeupAndNeverSleep() {
