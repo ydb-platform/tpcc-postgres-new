@@ -1,8 +1,8 @@
 # TPC-C Benchmark for PostgreSQL
 
-A C++23 implementation of the [TPC-C](http://www.tpc.org/tpcc/) benchmark for PostgreSQL.
-Ported from a YDB CLI implementation. Uses custom futures/promises with C++20 coroutines,
-libpqxx for PostgreSQL access, and an optional ftxui-based terminal UI.
+A C++23 implementation of the [TPC-C](http://www.tpc.org/tpcc/) benchmark for PostgreSQL with an optional realtime terminal UI.
+Ported using Opus 4.6 from a [YDB CLI implementation](https://ydb.tech/docs/en/reference/ydb-cli/workload-tpcc). Uses custom futures/promises with C++20 coroutines,
+libpqxx for PostgreSQL access.
 
 ## Dependencies
 
@@ -31,7 +31,7 @@ cmake --build build -j$(nproc)
 createdb tpcc
 
 # Create schema and indexes
-./build/tpcc --command=init
+./build/tpcc --command=init --warehouses=10
 
 # Load data (10 warehouses, parallel import)
 ./build/tpcc --command=import --warehouses=10 --load-threads=8
