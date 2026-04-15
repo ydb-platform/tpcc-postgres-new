@@ -1,6 +1,6 @@
 # TPC-C Benchmark for PostgreSQL
 
-A C++20 implementation of the [TPC-C](http://www.tpc.org/tpcc/) benchmark for PostgreSQL.
+A C++23 implementation of the [TPC-C](http://www.tpc.org/tpcc/) benchmark for PostgreSQL.
 Ported from a YDB CLI implementation. Uses custom futures/promises with C++20 coroutines,
 libpqxx for PostgreSQL access, and an optional ftxui-based terminal UI.
 
