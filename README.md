@@ -1,8 +1,41 @@
 # TPC-C Benchmark for PostgreSQL
 
-A C++23 implementation of the [TPC-C](http://www.tpc.org/tpcc/) benchmark for PostgreSQL with an optional realtime terminal UI.
-Ported using Opus 4.6 from a [YDB CLI implementation](https://ydb.tech/docs/en/reference/ydb-cli/workload-tpcc). Uses custom futures/promises with C++20 coroutines,
-libpqxx for PostgreSQL access.
+A C++23 implementation of the [TPC-C](http://www.tpc.org/tpcc/) benchmark for PostgreSQL, featuring an optional real-time terminal UI.
+
+This project is ported (using Opus 4.6) from the [YDB CLI implementation](https://ydb.tech/docs/en/reference/ydb-cli/workload-tpcc). It uses C++20 coroutines, custom futures/promises and `libpqxx` for PostgreSQL access.
+
+![TPC-C realtime TUI demo](tpcc.gif)
+
+## Requirements
+
+Hardware requirements depend on the particular hardware, but rough estimates are:
+* CPU: at least 1 CPU core per 1000 warehouses (2 recommended).
+* Memory: ~70 MiB per 1000 warehouses (100 MiB recommended).
+
+Current version's import might be suboptimal unlike the original YDB implementation: 15K wh import takes 98 minutes vs. 36 minutes for YDB (and vs. 119 minutes benchbase, but on older PostgreSQL version).
+
+## Performance notes
+The current data import implementation is not yet fully optimized compared to the original YDB version. For example, 15K warehouses import time:
+* This implementation: 98 minutes
+* YDB: 36 minutes
+* BenchBase (older PostgreSQL): 119 minutes
+
+## Porting notes
+
+By *porting* we mean:
+1. Replacing YDB-specific types with standard C++ equivalents ((e.g., TString → std::string, TFuture from YDB → custom TFuture, etc.).
+2. Translating queries from YQL to SQL
+3. Replacing the YDB SDK with `libpqxx`
+
+At the same time, the core benchmark logic remains unchanged.
+
+On one hand, the LLM did an impressive job porting the codebase. On the other, the initial result omitted a number of important features, including:
+* adaptive warmup and thundering herd avoidance
+* proper auto-detection of the required thread count
+* wiring for the import TUI
+* various smaller details
+
+Recovering these required careful review and multiple prompt iterations to bring the implementation back to feature parity.
 
 ## Dependencies
 
@@ -14,18 +47,8 @@ sudo apt install libpq-dev
 All other dependencies (fmt, spdlog, gflags, libpqxx, ftxui, googletest) are bundled
 as git submodules and built automatically.
 
-## Building
-
-```
-git submodule update --init
-cmake -B build -DCMAKE_CXX_COMPILER=clang++-20 -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j$(nproc)
-```
-
 ### tcmalloc (enabled automatically when available)
 
-The TPC-C loader allocates millions of short-lived `std::string`s; replacing
-glibc's `malloc` with tcmalloc typically gives a noticeable import speedup.
 CMake looks for tcmalloc at configure time and links it into `tpcc`
 automatically when found:
 
@@ -42,6 +65,14 @@ resolution. Verify with `ldd ./build/tpcc | grep tcmalloc`.
 
 Override the default with `-DTPCC_USE_TCMALLOC=ON` (require tcmalloc, fail
 configure if absent) or `-DTPCC_USE_TCMALLOC=OFF` (use the system allocator).
+
+## Building
+
+```
+git submodule update --init
+cmake -B build -DCMAKE_CXX_COMPILER=clang++-20 -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+```
 
 ## Running
 
