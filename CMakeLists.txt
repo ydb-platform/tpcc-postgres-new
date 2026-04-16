@@ -144,6 +144,38 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_options(tpcc PRIVATE -fcoroutines)
 endif()
 
+# Optional: link tcmalloc (requires libgoogle-perftools-dev + libtcmalloc-minimal4).
+# Overrides glibc malloc/free/operator new at link time; no LD_PRELOAD needed.
+# AUTO = link if tcmalloc is found, otherwise silently skip.
+# ON   = require tcmalloc; configure fails if not found.
+# OFF  = never link tcmalloc.
+set(TPCC_USE_TCMALLOC "AUTO" CACHE STRING "Link tcmalloc into the tpcc binary: AUTO, ON, or OFF")
+set_property(CACHE TPCC_USE_TCMALLOC PROPERTY STRINGS AUTO ON OFF)
+
+if(NOT TPCC_USE_TCMALLOC STREQUAL "OFF")
+    if(TPCC_USE_TCMALLOC STREQUAL "ON")
+        find_library(TCMALLOC_LIB NAMES tcmalloc tcmalloc_minimal REQUIRED)
+    else()
+        find_library(TCMALLOC_LIB NAMES tcmalloc tcmalloc_minimal)
+    endif()
+
+    if(TCMALLOC_LIB)
+        target_link_libraries(tpcc PRIVATE ${TCMALLOC_LIB})
+        # Recommended by gperftools: prevent the compiler from folding malloc
+        # patterns in ways that defeat tcmalloc's overrides.
+        target_compile_options(tpcc PRIVATE
+            -fno-builtin-malloc
+            -fno-builtin-calloc
+            -fno-builtin-realloc
+            -fno-builtin-free
+        )
+        message(STATUS "tpcc: linking tcmalloc (${TCMALLOC_LIB})")
+    else()
+        message(STATUS "tpcc: tcmalloc not found, using system malloc "
+                       "(install libgoogle-perftools-dev + libtcmalloc-minimal4 to enable)")
+    endif()
+endif()
+
 # --- coroutines_vs_threads benchmark ---
 add_executable(coroutines_vs_threads
     src/coroutines_vs_threads/main.cpp

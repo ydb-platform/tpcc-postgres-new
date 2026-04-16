@@ -22,6 +22,27 @@ cmake -B build -DCMAKE_CXX_COMPILER=clang++-20 -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
 ```
 
+### tcmalloc (enabled automatically when available)
+
+The TPC-C loader allocates millions of short-lived `std::string`s; replacing
+glibc's `malloc` with tcmalloc typically gives a noticeable import speedup.
+CMake looks for tcmalloc at configure time and links it into `tpcc`
+automatically when found:
+
+```
+sudo apt install libgoogle-perftools-dev libtcmalloc-minimal4
+cmake -B build -DCMAKE_CXX_COMPILER=clang++-20 -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+```
+
+The CMake status line will say `tpcc: linking tcmalloc (/usr/lib/...)` when
+it is picked up. No `LD_PRELOAD` is needed: tcmalloc is linked directly into
+the binary and overrides `malloc`/`free`/`operator new` via normal ELF symbol
+resolution. Verify with `ldd ./build/tpcc | grep tcmalloc`.
+
+Override the default with `-DTPCC_USE_TCMALLOC=ON` (require tcmalloc, fail
+configure if absent) or `-DTPCC_USE_TCMALLOC=OFF` (use the system allocator).
+
 ## Running
 
 ### Quick start
