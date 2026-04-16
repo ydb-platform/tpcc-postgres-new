@@ -366,13 +366,6 @@ void RunSync(const TRunConfig& config) {
               warmupSeconds, config.RunDuration.count());
     }
 
-    // Stagger terminal starts to avoid overwhelming the task queue
-    size_t startedTerminalId = 0;
-    for (; startedTerminalId < terminals.size() && !stopToken.stop_requested(); ++startedTerminalId) {
-        terminals[startedTerminalId]->Start();
-        std::this_thread::sleep_for(MinWarmupPerTerminalMs);
-    }
-
     bool warmupDone = config.SkipWarmup;
     if (warmupDone) {
         warmupEnd = Clock::now();
@@ -381,9 +374,7 @@ void RunSync(const TRunConfig& config) {
     Clock::time_point lastDisplayUpdate = startTs;
     std::shared_ptr<TRunDisplayData> prevData;
 
-    while (!stopToken.stop_requested()) {
-        auto now = Clock::now();
-
+    auto maybeUpdateDisplay = [&](Clock::time_point now) {
         if (!warmupDone && now >= warmupEnd) {
             LOG_I("Warmup complete, starting measurement");
             stopWarmup.store(true);
@@ -392,36 +383,52 @@ void RunSync(const TRunConfig& config) {
             runEnd = now + config.RunDuration;
         }
 
-        if (warmupDone && now >= runEnd) {
-            LOG_I("Benchmark duration reached, stopping...");
-            break;
-        }
-
         auto sinceLast = std::chrono::duration_cast<std::chrono::seconds>(now - lastDisplayUpdate);
         const auto updateInterval = std::chrono::seconds(
 #ifdef TPCC_HAS_TUI
             tui ? 1 :
 #endif
             5);
-        if (sinceLast >= updateInterval) {
-#ifdef TPCC_HAS_TUI
-            if (tui) {
-                auto displayData = CollectDisplayData(
-                    config, threadCount, terminalCount, *taskQueue,
-                    perThreadStats, startTs, warmupEnd, runEnd, warmupDone);
-                if (prevData) {
-                    displayData->Statistics.CalculateDerivativeAndTotal(prevData->Statistics);
-                }
-                tui->Update(displayData);
-                prevData = displayData;
-            } else
-#endif
-            {
-                auto measureStart = warmupDone ? warmupEnd : startTs;
-                PrintConsoleStats(config, perThreadStats, measureStart, runEnd);
-            }
-            lastDisplayUpdate = now;
+        if (sinceLast < updateInterval) {
+            return;
         }
+#ifdef TPCC_HAS_TUI
+        if (tui) {
+            auto displayData = CollectDisplayData(
+                config, threadCount, terminalCount, *taskQueue,
+                perThreadStats, startTs, warmupEnd, runEnd, warmupDone);
+            if (prevData) {
+                displayData->Statistics.CalculateDerivativeAndTotal(prevData->Statistics);
+            }
+            tui->Update(displayData);
+            prevData = displayData;
+        } else
+#endif
+        {
+            auto measureStart = warmupDone ? warmupEnd : startTs;
+            PrintConsoleStats(config, perThreadStats, measureStart, runEnd);
+        }
+        lastDisplayUpdate = now;
+    };
+
+    // Stagger terminal starts to avoid overwhelming the task queue. Keep the
+    // display refreshing throughout, since with many warehouses this loop can
+    // take tens of seconds.
+    for (size_t i = 0; i < terminals.size() && !stopToken.stop_requested(); ++i) {
+        terminals[i]->Start();
+        std::this_thread::sleep_for(MinWarmupPerTerminalMs);
+        maybeUpdateDisplay(Clock::now());
+    }
+
+    while (!stopToken.stop_requested()) {
+        auto now = Clock::now();
+
+        if (warmupDone && now >= runEnd) {
+            LOG_I("Benchmark duration reached, stopping...");
+            break;
+        }
+
+        maybeUpdateDisplay(now);
 
         std::this_thread::sleep_for(TRunConfig::SleepMsEveryIterationMainLoop);
     }
