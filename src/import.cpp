@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <functional>
 #include <iomanip>
 #include <random>
 #include <sstream>
@@ -26,6 +27,13 @@ namespace NTPCC {
 namespace {
 
 using Clock = std::chrono::steady_clock;
+
+void SetSearchPath(pqxx::connection& conn, const std::string& path) {
+    if (!path.empty()) {
+        pqxx::nontransaction ntx(conn);
+        ntx.exec(fmt::format("SET search_path TO {}", conn.quote_name(path)));
+    }
+}
 
 // Rough per-row byte estimates for progress tracking (not exact, but close enough for TUI)
 constexpr size_t BYTES_PER_ITEM = 40;
@@ -475,6 +483,7 @@ void ImportSync(const TImportConfig& config) {
     // Load small tables on the main connection
     {
         pqxx::connection conn(config.ConnectionString);
+        SetSearchPath(conn, config.Path);
         LoadItems(conn);
         state.DataSizeLoaded.fetch_add(EstimateSharedDataSize(), std::memory_order_relaxed);
         LoadWarehouses(conn, 1, static_cast<int>(config.WarehouseCount));
@@ -492,6 +501,7 @@ void ImportSync(const TImportConfig& config) {
         threads.emplace_back([&config, &state, whStart, whEnd]() {
             try {
                 pqxx::connection conn(config.ConnectionString);
+                SetSearchPath(conn, config.Path);
                 for (int wh = whStart; wh <= whEnd; ++wh) {
                     if (state.StopToken.stop_requested()) return;
                     LoadWarehouse(conn, wh, state);
@@ -585,13 +595,14 @@ void ImportSync(const TImportConfig& config) {
     LOG_I("Running ANALYZE on TPC-C tables...");
     {
         pqxx::connection conn(config.ConnectionString);
+        SetSearchPath(conn, config.Path);
         pqxx::nontransaction ntx(conn);
         for (const auto* table : TPCC_TABLES) {
             ntx.exec(fmt::format("ANALYZE {}", table));
         }
     }
 
-    CreateIndexes(config.ConnectionString);
+    CreateIndexes(config.ConnectionString, config.Path);
 
     auto elapsed = Clock::now() - startTime;
     auto seconds = std::chrono::duration<double>(elapsed).count();

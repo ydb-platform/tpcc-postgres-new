@@ -67,4 +67,10 @@ size_t NumberOfMyCpus() {
 }
 #endif
 
+//-----------------------------------------------------------------------------
+
+std::string GetEffectiveSchema(const std::string& path) {
+    return path.empty() ? "public" : path;
+}
+
 } // namespace NTPCC

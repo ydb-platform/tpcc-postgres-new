@@ -63,6 +63,7 @@ Run `./build/tpcc --help` for the full list. Key options:
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `--path` | (public) | PostgreSQL schema for benchmark tables |
 | `--warehouses` | 1 | Number of warehouses (scales data and terminals) |
 | `--duration` | 600 | Benchmark duration in seconds |
 | `--warmup` | 0 | Warmup period before measurement starts |

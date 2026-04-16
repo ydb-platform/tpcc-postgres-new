@@ -4,6 +4,6 @@
 
 namespace NTPCC {
 
-void CleanSync(const std::string& connectionString);
+void CleanSync(const std::string& connectionString, const std::string& path = {});
 
 } // namespace NTPCC

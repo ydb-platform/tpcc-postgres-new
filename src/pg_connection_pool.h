@@ -17,7 +17,8 @@ class PgConnectionPool {
 public:
     PgConnectionPool(const std::string& connectionString,
                      size_t poolSize,
-                     size_t ioThreads);
+                     size_t ioThreads,
+                     const std::string& path = {});
 
     ~PgConnectionPool();
 

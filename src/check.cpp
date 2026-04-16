@@ -474,13 +474,20 @@ void PostImportCheckNoDeliveryDates(pqxx::nontransaction& txn) {
 
 } // anonymous
 
-void CheckSync(const std::string& connectionString, int warehouseCount, bool afterImport) {
+void CheckSync(const std::string& connectionString, int warehouseCount, bool afterImport,
+               const std::string& path) {
     if (warehouseCount <= 0) {
         std::cerr << "Zero warehouses specified, nothing to check" << std::endl;
         return;
     }
 
     pqxx::connection conn(connectionString);
+
+    if (!path.empty()) {
+        pqxx::nontransaction ntx(conn);
+        ntx.exec(fmt::format("SET search_path TO {}", conn.quote_name(path)));
+    }
+
     pqxx::nontransaction txn(conn);
 
     int failedCount = 0;

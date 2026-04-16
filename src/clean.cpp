@@ -2,6 +2,7 @@
 
 #include "constants.h"
 #include "log.h"
+#include "util.h"
 
 #include <pqxx/pqxx>
 
@@ -24,8 +25,14 @@ void DropTable(pqxx::nontransaction& txn, const char* tableName) {
 
 } // anonymous
 
-void CleanSync(const std::string& connectionString) {
+void CleanSync(const std::string& connectionString, const std::string& path) {
     pqxx::connection conn(connectionString);
+
+    if (!path.empty()) {
+        pqxx::nontransaction ntx(conn);
+        ntx.exec(fmt::format("SET search_path TO {}", conn.quote_name(path)));
+    }
+
     pqxx::nontransaction txn(conn);
 
     LOG_I("Starting to drop TPC-C tables");
@@ -39,6 +46,16 @@ void CleanSync(const std::string& connectionString) {
     DropTable(txn, TABLE_STOCK);
     DropTable(txn, TABLE_ITEM);
     DropTable(txn, TABLE_WAREHOUSE);
+
+    if (!path.empty()) {
+        try {
+            pqxx::nontransaction ntx2(conn);
+            ntx2.exec(fmt::format("DROP SCHEMA IF EXISTS {} CASCADE", conn.quote_name(path)));
+            LOG_I("Schema '{}' dropped", path);
+        } catch (const std::exception& ex) {
+            LOG_W("Failed to drop schema '{}': {}", path, ex.what());
+        }
+    }
 
     LOG_I("All TPC-C tables dropped successfully");
 }

@@ -69,4 +69,9 @@ inline void RequestStopWithError() {
 
 size_t NumberOfMyCpus();
 
+//-----------------------------------------------------------------------------
+
+// Returns the effective PostgreSQL schema name: the given path if non-empty, "public" otherwise.
+std::string GetEffectiveSchema(const std::string& path);
+
 } // namespace NTPCC

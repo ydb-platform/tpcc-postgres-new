@@ -14,6 +14,7 @@
 #include <string>
 
 DEFINE_string(connection, "host=localhost dbname=tpcc user=postgres", "PostgreSQL connection string");
+DEFINE_string(path, "", "PostgreSQL schema for benchmark tables (default: public)");
 DEFINE_string(command, "run", "Command to execute: init, import, run, clean, check");
 
 DEFINE_int32(warehouses, 1, "Number of warehouses");
@@ -49,6 +50,7 @@ void PrintHelp() {
         "Options:\n"
         "  --connection    PostgreSQL connection string\n"
         "                  (default: \"host=localhost dbname=tpcc user=postgres\")\n"
+        "  --path          PostgreSQL schema for benchmark tables (default: public)\n"
         "  --command       Command to execute (default: \"run\")\n"
         "  --warehouses    Number of warehouses (default: 1)\n"
         "  --warmup        Warmup duration in seconds (default: 0)\n"
@@ -85,14 +87,15 @@ spdlog::level::level_enum ParseLogLevel(const std::string& level) {
 }
 
 void RunInit() {
-    NTPCC::CheckDbForInit(FLAGS_connection);
-    NTPCC::InitSync(FLAGS_connection);
+    NTPCC::CheckDbForInit(FLAGS_connection, FLAGS_path);
+    NTPCC::InitSync(FLAGS_connection, FLAGS_path);
 }
 
 void RunImport() {
-    NTPCC::CheckDbForImport(FLAGS_connection);
+    NTPCC::CheckDbForImport(FLAGS_connection, FLAGS_path);
     NTPCC::TImportConfig config;
     config.ConnectionString = FLAGS_connection;
+    config.Path = FLAGS_path;
     config.WarehouseCount = FLAGS_warehouses;
     config.LoadThreadCount = FLAGS_load_threads;
     config.UseTui = !FLAGS_no_tui;
@@ -102,6 +105,7 @@ void RunImport() {
 void RunBenchmark() {
     NTPCC::TRunConfig config;
     config.ConnectionString = FLAGS_connection;
+    config.Path = FLAGS_path;
     config.WarehouseCount = FLAGS_warehouses;
     config.WarmupDuration = std::chrono::seconds(FLAGS_warmup);
     config.RunDuration = std::chrono::seconds(FLAGS_duration);
@@ -115,19 +119,19 @@ void RunBenchmark() {
     config.UseTui = !FLAGS_no_tui;
 
     if (!config.IsSimulationMode()) {
-        NTPCC::CheckDbForRun(FLAGS_connection, FLAGS_warehouses);
+        NTPCC::CheckDbForRun(FLAGS_connection, FLAGS_warehouses, FLAGS_path);
     }
 
     NTPCC::RunSync(config);
 }
 
 void RunClean() {
-    NTPCC::CleanSync(FLAGS_connection);
+    NTPCC::CleanSync(FLAGS_connection, FLAGS_path);
 }
 
 void RunCheck() {
-    NTPCC::CheckDbForRun(FLAGS_connection, FLAGS_warehouses);
-    NTPCC::CheckSync(FLAGS_connection, FLAGS_warehouses, FLAGS_after_import);
+    NTPCC::CheckDbForRun(FLAGS_connection, FLAGS_warehouses, FLAGS_path);
+    NTPCC::CheckSync(FLAGS_connection, FLAGS_warehouses, FLAGS_after_import, FLAGS_path);
 }
 
 } // anonymous

@@ -9,6 +9,7 @@ namespace NTPCC {
 
 struct TImportConfig {
     std::string ConnectionString;
+    std::string Path;
     size_t WarehouseCount = 1;
     size_t LoadThreadCount = 0;
     bool UseTui = true;

@@ -12,6 +12,7 @@ constexpr int DEFAULT_IO_THREADS = 4;
 
 struct TRunConfig {
     std::string ConnectionString;
+    std::string Path;
     size_t WarehouseCount = DEFAULT_WAREHOUSE_COUNT;
     std::chrono::seconds WarmupDuration{0};
     std::chrono::seconds RunDuration{600};

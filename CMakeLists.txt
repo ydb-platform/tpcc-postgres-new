@@ -299,4 +299,15 @@ else()
         TIMEOUT 600
         ENVIRONMENT "TPCC_BIN=$<TARGET_FILE:tpcc>"
     )
+
+    add_test(
+        NAME path_test
+        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/path_test.sh
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+    set_tests_properties(path_test PROPERTIES
+        LABELS "pg"
+        TIMEOUT 300
+        ENVIRONMENT "TPCC_BIN=$<TARGET_FILE:tpcc>"
+    )
 endif()

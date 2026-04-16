@@ -240,7 +240,7 @@ void RunSync(const TRunConfig& config) {
                   config.IOThreads, ioThreads);
         }
         connectionPool = std::make_unique<PgConnectionPool>(
-            config.ConnectionString, poolSize, ioThreads);
+            config.ConnectionString, poolSize, ioThreads, config.Path);
     }
 
     auto taskQueue = CreateTaskQueue(threadCount, maxInflight, terminalCount, terminalCount);

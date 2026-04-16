@@ -1,11 +1,14 @@
 #include "pg_connection_pool.h"
 #include "log.h"
 
+#include <fmt/format.h>
+
 namespace NTPCC {
 
 PgConnectionPool::PgConnectionPool(const std::string& connectionString,
                                    size_t poolSize,
-                                   size_t ioThreads)
+                                   size_t ioThreads,
+                                   const std::string& path)
     : connectionString_(connectionString)
     , poolSize_(poolSize)
     , executor_(std::make_unique<TThreadPool>(ioThreads))
@@ -14,6 +17,10 @@ PgConnectionPool::PgConnectionPool(const std::string& connectionString,
 
     for (size_t i = 0; i < poolSize; ++i) {
         auto conn = std::make_unique<pqxx::connection>(connectionString_);
+        if (!path.empty()) {
+            pqxx::nontransaction ntx(*conn);
+            ntx.exec(fmt::format("SET search_path TO {}", conn->quote_name(path)));
+        }
         connections_.push(std::move(conn));
     }
 

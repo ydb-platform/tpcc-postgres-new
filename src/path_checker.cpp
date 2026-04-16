@@ -2,9 +2,11 @@
 
 #include "constants.h"
 #include "log.h"
+#include "util.h"
 
 #include <pqxx/pqxx>
 
+#include <fmt/format.h>
 #include <iostream>
 #include <unordered_set>
 #include <string>
@@ -13,11 +15,21 @@ namespace NTPCC {
 
 namespace {
 
-std::unordered_set<std::string> ListTables(pqxx::connection& conn) {
+void SetSearchPath(pqxx::connection& conn, const std::string& path) {
+    if (!path.empty()) {
+        pqxx::nontransaction ntx(conn);
+        ntx.exec(fmt::format("SET search_path TO {}", conn.quote_name(path)));
+    }
+}
+
+std::unordered_set<std::string> ListTables(pqxx::connection& conn, const std::string& schema) {
     pqxx::nontransaction ntx(conn);
+    pqxx::params p;
+    p.append(schema);
     auto result = ntx.exec(
         "SELECT table_name FROM information_schema.tables "
-        "WHERE table_schema = 'public' AND table_type = 'BASE TABLE'");
+        "WHERE table_schema = $1 AND table_type = 'BASE TABLE'",
+        p);
 
     std::unordered_set<std::string> tables;
     for (const auto& row : result) {
@@ -26,13 +38,15 @@ std::unordered_set<std::string> ListTables(pqxx::connection& conn) {
     return tables;
 }
 
-std::unordered_set<std::string> ListIndexes(pqxx::connection& conn, const std::string& tableName) {
+std::unordered_set<std::string> ListIndexes(pqxx::connection& conn, const std::string& schema,
+                                            const std::string& tableName) {
     pqxx::nontransaction ntx(conn);
     pqxx::params p;
+    p.append(schema);
     p.append(tableName);
     auto result = ntx.exec(
         "SELECT indexname FROM pg_indexes "
-        "WHERE schemaname = 'public' AND tablename = $1",
+        "WHERE schemaname = $1 AND tablename = $2",
         p);
 
     std::unordered_set<std::string> indexes;
@@ -42,8 +56,8 @@ std::unordered_set<std::string> ListIndexes(pqxx::connection& conn, const std::s
     return indexes;
 }
 
-void CheckTablesExist(pqxx::connection& conn, const char* what) {
-    auto tables = ListTables(conn);
+void CheckTablesExist(pqxx::connection& conn, const std::string& schema, const char* what) {
+    auto tables = ListTables(conn, schema);
 
     for (const char* table : TPCC_TABLES) {
         if (!tables.contains(table)) {
@@ -53,8 +67,8 @@ void CheckTablesExist(pqxx::connection& conn, const char* what) {
     }
 }
 
-void CheckNoTablesExist(pqxx::connection& conn, const char* what) {
-    auto tables = ListTables(conn);
+void CheckNoTablesExist(pqxx::connection& conn, const std::string& schema, const char* what) {
+    auto tables = ListTables(conn, schema);
 
     for (const char* table : TPCC_TABLES) {
         if (tables.contains(table)) {
@@ -64,8 +78,9 @@ void CheckNoTablesExist(pqxx::connection& conn, const char* what) {
     }
 }
 
-void CheckIndexExists(pqxx::connection& conn, const std::string& tableName, const std::string& expectedIndex) {
-    auto indexes = ListIndexes(conn, tableName);
+void CheckIndexExists(pqxx::connection& conn, const std::string& schema,
+                      const std::string& tableName, const std::string& expectedIndex) {
+    auto indexes = ListIndexes(conn, schema, tableName);
     if (!indexes.contains(expectedIndex)) {
         std::cerr << "Table '" << tableName
                   << "' is missing expected index '" << expectedIndex
@@ -82,21 +97,24 @@ int GetWarehouseCount(pqxx::connection& conn) {
 
 } // anonymous
 
-void CheckDbForInit(const std::string& connectionString) noexcept {
+void CheckDbForInit(const std::string& connectionString, const std::string& path) noexcept {
     try {
         pqxx::connection conn(connectionString);
-        CheckNoTablesExist(conn, "Already inited or forgot to clean?");
+        auto schema = GetEffectiveSchema(path);
+        CheckNoTablesExist(conn, schema, "Already inited or forgot to clean?");
     } catch (const std::exception& e) {
         std::cerr << "Pre-flight check for init failed: " << e.what() << std::endl;
         std::exit(1);
     }
 }
 
-void CheckDbForImport(const std::string& connectionString) noexcept {
+void CheckDbForImport(const std::string& connectionString, const std::string& path) noexcept {
     try {
         pqxx::connection conn(connectionString);
+        auto schema = GetEffectiveSchema(path);
+        SetSearchPath(conn, path);
 
-        CheckTablesExist(conn, "Run 'tpcc init' first.");
+        CheckTablesExist(conn, schema, "Run 'tpcc init' first.");
 
         int whCount = GetWarehouseCount(conn);
         if (whCount != 0) {
@@ -110,14 +128,17 @@ void CheckDbForImport(const std::string& connectionString) noexcept {
     }
 }
 
-void CheckDbForRun(const std::string& connectionString, int expectedWhCount) noexcept {
+void CheckDbForRun(const std::string& connectionString, int expectedWhCount,
+                   const std::string& path) noexcept {
     try {
         pqxx::connection conn(connectionString);
+        auto schema = GetEffectiveSchema(path);
+        SetSearchPath(conn, path);
 
-        CheckTablesExist(conn, "Run 'tpcc init' and 'tpcc import' first.");
+        CheckTablesExist(conn, schema, "Run 'tpcc init' and 'tpcc import' first.");
 
-        CheckIndexExists(conn, TABLE_CUSTOMER, INDEX_CUSTOMER_NAME);
-        CheckIndexExists(conn, TABLE_OORDER, INDEX_ORDER);
+        CheckIndexExists(conn, schema, TABLE_CUSTOMER, INDEX_CUSTOMER_NAME);
+        CheckIndexExists(conn, schema, TABLE_OORDER, INDEX_ORDER);
 
         int whCount = GetWarehouseCount(conn);
         if (whCount == 0) {

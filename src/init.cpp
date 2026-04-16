@@ -2,8 +2,10 @@
 
 #include "constants.h"
 #include "log.h"
+#include "util.h"
 
 #include <pqxx/pqxx>
+#include <fmt/format.h>
 
 #include <stdexcept>
 
@@ -170,11 +172,27 @@ CREATE INDEX IF NOT EXISTS idx_order ON oorder (o_w_id, o_d_id, o_c_id, o_id);
 
 } // anonymous
 
-void InitSync(const std::string& connectionString) {
+void SetSearchPath(pqxx::connection& conn, const std::string& path) {
+    if (!path.empty()) {
+        pqxx::nontransaction ntx(conn);
+        ntx.exec(fmt::format("SET search_path TO {}", conn.quote_name(path)));
+    }
+}
+
+void InitSync(const std::string& connectionString, const std::string& path) {
     LOG_I("Initializing TPC-C schema...");
 
     try {
         pqxx::connection conn(connectionString);
+
+        if (!path.empty()) {
+            pqxx::nontransaction ntx(conn);
+            ntx.exec(fmt::format("CREATE SCHEMA IF NOT EXISTS {}", conn.quote_name(path)));
+            LOG_I("Created schema '{}'", path);
+        }
+
+        SetSearchPath(conn, path);
+
         pqxx::nontransaction ntx(conn);
         ntx.exec(DDL);
         LOG_I("All TPC-C tables created successfully");
@@ -185,11 +203,13 @@ void InitSync(const std::string& connectionString) {
     }
 }
 
-void CreateIndexes(const std::string& connectionString) {
+void CreateIndexes(const std::string& connectionString, const std::string& path) {
     LOG_I("Creating secondary indexes...");
 
     try {
         pqxx::connection conn(connectionString);
+        SetSearchPath(conn, path);
+
         pqxx::nontransaction ntx(conn);
         ntx.exec(INDEX_DDL);
         LOG_I("Secondary indexes created");
