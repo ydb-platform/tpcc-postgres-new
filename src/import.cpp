@@ -37,6 +37,11 @@ void SetSearchPath(pqxx::connection& conn, const std::string& path) {
     }
 }
 
+void DisableSynchronousCommit(pqxx::connection& conn) {
+    pqxx::nontransaction ntx(conn);
+    ntx.exec("SET synchronous_commit = off");
+}
+
 // Rough per-row byte estimates for progress tracking (not exact, but close enough for TUI)
 constexpr size_t BYTES_PER_ITEM = 40;
 constexpr size_t BYTES_PER_STOCK = 280;
@@ -486,6 +491,7 @@ void ImportSync(const TImportConfig& config) {
     {
         pqxx::connection conn(config.ConnectionString);
         SetSearchPath(conn, config.Path);
+        DisableSynchronousCommit(conn);
         LoadItems(conn);
         state.DataSizeLoaded.fetch_add(EstimateSharedDataSize(), std::memory_order_relaxed);
         LoadWarehouses(conn, 1, static_cast<int>(config.WarehouseCount));
@@ -504,6 +510,7 @@ void ImportSync(const TImportConfig& config) {
             try {
                 pqxx::connection conn(config.ConnectionString);
                 SetSearchPath(conn, config.Path);
+                DisableSynchronousCommit(conn);
                 for (int wh = whStart; wh <= whEnd; ++wh) {
                     if (state.StopToken.stop_requested()) return;
                     LoadWarehouse(conn, wh, state);
