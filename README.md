@@ -83,22 +83,22 @@ cmake --build build -j$(nproc)
 createdb tpcc
 
 # Create schema and indexes
-./build/tpcc --command=init --warehouses=10
+./build/tpcc init -w 10
 
-# Load data (10 warehouses, parallel import)
-./build/tpcc --command=import --warehouses=10 --load-threads=8
+# Load data (10 warehouses, parallel import: -t controls importer threads)
+./build/tpcc import -w 10 -t 8
 
 # Verify loaded data
-./build/tpcc --command=check --warehouses=10 --after-import
+./build/tpcc check -w 10 --after-import
 
 # Run the benchmark (5 minutes)
-./build/tpcc --command=run --warehouses=10 --duration=5
+./build/tpcc run -w 10 --duration=5
 
 # Run consistency checks after benchmark
-./build/tpcc --command=check --warehouses=10
+./build/tpcc check -w 10
 
 # Clean up
-./build/tpcc --command=clean
+./build/tpcc clean
 ```
 
 ### Connection
@@ -106,25 +106,25 @@ createdb tpcc
 By default connects to `host=localhost dbname=tpcc user=postgres`.
 Override with `--connection`:
 ```
-./build/tpcc --command=run --connection="host=myhost dbname=tpcc user=bench password=secret"
+./build/tpcc run --connection="host=myhost dbname=tpcc user=bench password=secret"
 ```
 
 ### Options
 
 Run `./build/tpcc --help` for the full list. Key options:
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--path` | `""` | PostgreSQL schema for benchmark tables (empty uses server search_path) |
-| `--warehouses` | 1 | Number of warehouses (scales data and terminals) |
-| `--duration` | 10 | Benchmark duration in minutes |
-| `--warmup` | 0 | Warmup period in minutes before measurement starts (0 = adaptive) |
-| `--skip-warmup` | false | Skip warmup entirely and start measurement immediately |
-| `--threads` | auto | Coroutine threads |
-| `--max-inflight` | 100 | Max concurrent transactions |
-| `--no-delays` | false | Disable TPC-C keying/think time delays |
-| `--no-tui` | false | Disable terminal UI (console output instead) |
-| `--after-import` | false | Check: verify freshly loaded data (stricter invariants) |
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--path` | `-p` | `""` | PostgreSQL schema for benchmark tables (empty uses server search_path) |
+| `--warehouses` | `-w` | 1 | Number of warehouses (scales data and terminals) |
+| `--duration` |  | 10 | Benchmark duration in minutes |
+| `--warmup` |  | 0 | Warmup period in minutes before measurement starts (0 = adaptive) |
+| `--skip-warmup` |  | false | Skip warmup entirely and start measurement immediately |
+| `--threads` | `-t` | auto | Threads (coroutine threads for `run`, importer threads for `import`) |
+| `--max-inflight` | `-m` | 100 | Max concurrent transactions |
+| `--no-delays` |  | false | Disable TPC-C keying/think time delays |
+| `--no-tui` |  | false | Disable terminal UI (console output instead) |
+| `--after-import` |  | false | Check: verify freshly loaded data (stricter invariants) |
 
 ## Testing
 
@@ -167,8 +167,8 @@ TPCC_TEST_CONNECTION="host=localhost dbname=tpcc_test user=postgres password=pos
 Test the coroutine/IO infrastructure without a real database:
 ```
 # Pure sleep simulation (no DB connection needed)
-./build/tpcc --command=run --simulate-ms=50 --duration=1 --no-tui
+./build/tpcc run --simulate-ms=50 --duration=1 --no-tui
 
 # SELECT 1 simulation (needs a running PostgreSQL)
-./build/tpcc --command=run --simulate-select1=5 --duration=1
+./build/tpcc run --simulate-select1=5 --duration=1
 ```

@@ -21,7 +21,7 @@ CONNECTION="host=${PGHOST:-localhost} port=${PGPORT:-5432} dbname=${DB_NAME} use
 
 cleanup() {
     echo "--- Cleaning up ---"
-    "${TPCC_BIN}" --command=clean --path="${SCHEMA}" --connection="${CONNECTION}" 2>/dev/null || true
+    "${TPCC_BIN}" clean --path="${SCHEMA}" --connection="${CONNECTION}" 2>/dev/null || true
     dropdb --if-exists "${DB_NAME}" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -61,7 +61,7 @@ check_sentinel() {
 }
 
 echo "--- Init with --path=${SCHEMA} ---"
-"${TPCC_BIN}" --command=init --path="${SCHEMA}" --connection="${CONNECTION}"
+"${TPCC_BIN}" init --path="${SCHEMA}" --connection="${CONNECTION}"
 check_sentinel "init"
 
 # Verify tables are in the custom schema, and only the sentinel is in public.
@@ -83,16 +83,16 @@ if [[ "${PUBLIC_COUNT}" -ne 1 ]]; then
 fi
 
 echo "--- Import with --path=${SCHEMA} ---"
-"${TPCC_BIN}" --command=import --warehouses="${TPCC_WAREHOUSES}" --no_tui \
+"${TPCC_BIN}" import --warehouses="${TPCC_WAREHOUSES}" --no_tui \
     --path="${SCHEMA}" --connection="${CONNECTION}"
 check_sentinel "import"
 
 echo "--- Check after import with --path=${SCHEMA} ---"
-"${TPCC_BIN}" --command=check --warehouses="${TPCC_WAREHOUSES}" --after_import \
+"${TPCC_BIN}" check --warehouses="${TPCC_WAREHOUSES}" --after_import \
     --path="${SCHEMA}" --connection="${CONNECTION}"
 
 echo "--- Run benchmark with --path=${SCHEMA} ---"
-"${TPCC_BIN}" --command=run \
+"${TPCC_BIN}" run \
     --warehouses="${TPCC_WAREHOUSES}" \
     --duration="${TPCC_DURATION}" \
     --no_tui \
@@ -101,11 +101,11 @@ echo "--- Run benchmark with --path=${SCHEMA} ---"
 check_sentinel "run"
 
 echo "--- Check after benchmark with --path=${SCHEMA} ---"
-"${TPCC_BIN}" --command=check --warehouses="${TPCC_WAREHOUSES}" \
+"${TPCC_BIN}" check --warehouses="${TPCC_WAREHOUSES}" \
     --path="${SCHEMA}" --connection="${CONNECTION}"
 
 echo "--- Clean with --path=${SCHEMA} ---"
-"${TPCC_BIN}" --command=clean --path="${SCHEMA}" --connection="${CONNECTION}"
+"${TPCC_BIN}" clean --path="${SCHEMA}" --connection="${CONNECTION}"
 check_sentinel "clean"
 
 # Verify schema was dropped

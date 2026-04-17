@@ -28,7 +28,7 @@ CONNECTION="host=${PGHOST:-localhost} port=${PGPORT:-5432} dbname=${DB_NAME} use
 
 cleanup() {
     echo "--- Cleaning up ---"
-    "${TPCC_BIN}" --command=clean --connection="${CONNECTION}" 2>/dev/null || true
+    "${TPCC_BIN}" clean --connection="${CONNECTION}" 2>/dev/null || true
     dropdb --if-exists "${DB_NAME}" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -49,23 +49,23 @@ echo "--- Creating database ---"
 createdb "${DB_NAME}"
 
 echo "--- Initializing schema ---"
-"${TPCC_BIN}" --command=init --connection="${CONNECTION}"
+"${TPCC_BIN}" init --connection="${CONNECTION}"
 
 echo "--- Importing data (${TPCC_WAREHOUSES} warehouse(s)) ---"
-"${TPCC_BIN}" --command=import --warehouses="${TPCC_WAREHOUSES}" --no_tui --connection="${CONNECTION}"
+"${TPCC_BIN}" import --warehouses="${TPCC_WAREHOUSES}" --no_tui --connection="${CONNECTION}"
 
 echo "--- Checking after import ---"
-"${TPCC_BIN}" --command=check --warehouses="${TPCC_WAREHOUSES}" --after_import --connection="${CONNECTION}"
+"${TPCC_BIN}" check --warehouses="${TPCC_WAREHOUSES}" --after_import --connection="${CONNECTION}"
 
 echo "--- Running benchmark (${TPCC_DURATION} min, no TUI) ---"
-"${TPCC_BIN}" --command=run \
+"${TPCC_BIN}" run \
     --warehouses="${TPCC_WAREHOUSES}" \
     --duration="${TPCC_DURATION}" \
     --no_tui \
     --connection="${CONNECTION}"
 
 echo "--- Checking after benchmark ---"
-"${TPCC_BIN}" --command=check --warehouses="${TPCC_WAREHOUSES}" --connection="${CONNECTION}"
+"${TPCC_BIN}" check --warehouses="${TPCC_WAREHOUSES}" --connection="${CONNECTION}"
 
 echo ""
 echo "=== Smoke test PASSED ==="
