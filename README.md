@@ -1,10 +1,18 @@
 # TPC-C Benchmark for PostgreSQL
 
-A C++23 implementation of the [TPC-C](http://www.tpc.org/tpcc/) benchmark for PostgreSQL, featuring an optional real-time terminal UI.
+An efficient C++23 implementation of the [TPC-C](http://www.tpc.org/tpcc/) benchmark for PostgreSQL – with a real-time terminal UI and live result preview.
 
-This project is ported (using Opus 4.6) from the [YDB CLI implementation](https://ydb.tech/docs/en/reference/ydb-cli/workload-tpcc). It uses C++20 coroutines, custom futures/promises and `libpqxx` for PostgreSQL access.
+Main features:
+* High efficiency: low CPU and RAM usage even at large scale
+* Real-time TUI: watch tpmC, latency, and progress live
+* Spec-aware implementation: careful alignment with TPC-C rules and validation
+* Coroutine-based terminals: no callback hell, no thread explosion — just clean async logic and readable code
 
 ![TPC-C realtime TUI demo](tpcc.gif)
+
+This project is ported (using Opus 4.6) from the [YDB CLI implementation](https://ydb.tech/docs/en/reference/ydb-cli/workload-tpcc). The current import implementation is not yet fully optimized compared to the original YDB version. For example, importing 15K warehouses takes ~98 minutes, versus ~36 minutes for YDB (and ~119 minutes for BenchBase on an older PostgreSQL version). This gap may be due both to suboptimal implementation here and to YDB’s inherently more efficient bulk data ingestion.
+
+The TPC-C terminal model maps naturally to coroutines: each terminal becomes a sequential flow with explicit suspension points. This implementation showcases “raw” C++ coroutines (without heavy frameworks), keeping the control flow both efficient and easy to follow.
 
 ## Requirements
 
@@ -12,18 +20,10 @@ Hardware requirements depend on the particular hardware, but rough estimates are
 * CPU: at least 1 CPU core per 1000 warehouses (2 recommended).
 * Memory: ~70 MiB per 1000 warehouses (100 MiB recommended).
 
-Current version's import might be suboptimal unlike the original YDB implementation: 15K wh import takes 98 minutes vs. 36 minutes for YDB (and vs. 119 minutes benchbase, but on older PostgreSQL version).
-
-## Performance notes
-The current data import implementation is not yet fully optimized compared to the original YDB version. For example, 15K warehouses import time:
-* This implementation: 98 minutes
-* YDB: 36 minutes
-* BenchBase (older PostgreSQL): 119 minutes
-
 ## Porting notes
 
 By *porting* we mean:
-1. Replacing YDB-specific types with standard C++ equivalents ((e.g., TString → std::string, TFuture from YDB → custom TFuture, etc.).
+1. Replacing YDB-specific types with standard C++ equivalents (e.g., TString → std::string, TFuture from YDB → custom TFuture, etc.).
 2. Translating queries from YQL to SQL
 3. Replacing the YDB SDK with `libpqxx`
 
@@ -104,14 +104,11 @@ cmake --build build -j"$(sysctl -n hw.ncpu)"
 ### Quick start
 
 ```
-# Create a database
-createdb tpcc
-
 # Create schema and indexes
 ./build/tpcc init -w 10
 
 # Load data (10 warehouses, parallel import: -t controls importer threads)
-./build/tpcc import -w 10 -t 8
+./build/tpcc import -w 10 -t 5
 
 # Verify loaded data
 ./build/tpcc check -w 10 --after-import
